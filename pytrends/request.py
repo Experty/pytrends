@@ -51,6 +51,8 @@ class TrendReq(object):
         self.retries = retries
         self.backoff_factor = backoff_factor
         self.proxy_index = 0
+        self.proxy_rotating = False  # if the proxy_rotating parameter is true then in case of proxy error exceptions
+        #  the request will be retried
         self.requests_args = requests_args or {}
         self.cookies = self.GetGoogleCookie()
         # intialize widget payloads
@@ -90,12 +92,13 @@ class TrendReq(object):
                         **self.requests_args
                     ).cookies.items()))
                 except requests.exceptions.ProxyError:
-                    print('Proxy error. Changing IP')
-                    if len(self.proxies) > 1:
-                        self.proxies.remove(self.proxies[self.proxy_index])
-                    else:
-                        print('No more proxies available. Bye!')
-                        raise
+                    if not self.proxy_rotating:
+                        print('Proxy error. Changing IP')
+                        if len(self.proxies) > 1:
+                            self.proxies.remove(self.proxies[self.proxy_index])
+                        else:
+                            print('No more proxies available. Bye!')
+                            raise
                     continue
 
     def GetNewProxy(self):
@@ -452,13 +455,12 @@ class TrendReq(object):
         result_df = pd.concat([result_df, sub_df])
         return result_df.iloc[:, -1]
 
-    def realtime_trending_searches(self, pn='US', cat='all', count =300):
+    def realtime_trending_searches(self, pn='US', cat='all', count=300):
         """Request data from Google Realtime Search Trends section and returns a dataframe"""
         # Don't know what some of the params mean here, followed the nodejs library
         # https://github.com/pat310/google-trends-api/ 's implemenration
 
-
-        #sort: api accepts only 0 as the value, optional parameter
+        # sort: api accepts only 0 as the value, optional parameter
 
         # ri: number of trending stories IDs returned,
         # max value of ri supported is 300, based on emperical evidence
@@ -471,9 +473,10 @@ class TrendReq(object):
         # max value of ri supported is 200, based on emperical evidence
         rs_value = 200
         if count < rs_value:
-            rs_value = count-1
+            rs_value = count - 1
 
-        forms = {'ns': 15, 'geo': pn, 'tz': '300', 'hl': 'en-US', 'cat': cat, 'fi' : '0', 'fs' : '0', 'ri' : ri_value, 'rs' : rs_value, 'sort' : 0}
+        forms = {'ns': 15, 'geo': pn, 'tz': '300', 'hl': 'en-US', 'cat': cat, 'fi': '0', 'fs': '0', 'ri': ri_value,
+                 'rs': rs_value, 'sort': 0}
         req_json = self._get_data(
             url=TrendReq.REALTIME_TRENDING_SEARCHES_URL,
             method=TrendReq.GET_METHOD,
@@ -484,7 +487,7 @@ class TrendReq(object):
         # parse the returned json
         wanted_keys = ["entityNames", "title"]
 
-        final_json = [{ key: ts[key] for key in ts.keys() if key in wanted_keys} for ts in req_json ]
+        final_json = [{key: ts[key] for key in ts.keys() if key in wanted_keys} for ts in req_json]
 
         result_df = pd.DataFrame(final_json)
 
@@ -562,13 +565,13 @@ class TrendReq(object):
         # 7 days for hourly
         # ~250 days for daily (270 seems to be max but sometimes breaks?)
         # For weekly can pull any date range so no method required here
-        
+
         if frequency == 'hourly':
             delta = timedelta(days=7)
         elif frequency == 'daily':
             delta = timedelta(days=250)
         else:
-            raise(ValueError('Frequency must be hourly or daily'))
+            raise (ValueError('Frequency must be hourly or daily'))
 
         df = pd.DataFrame()
 
