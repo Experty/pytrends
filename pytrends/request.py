@@ -34,7 +34,7 @@ class TrendReq(object):
     ERROR_CODES = (500, 502, 504, 429)
 
     def __init__(self, hl='en-US', tz=360, geo='', timeout=(2, 5), proxies='',
-                 retries=0, backoff_factor=0, requests_args=None):
+                 retries=0, backoff_factor=0, requests_args=None, proxy_rotating=False):
         """
         Initialize default values for params
         """
@@ -51,7 +51,7 @@ class TrendReq(object):
         self.retries = retries
         self.backoff_factor = backoff_factor
         self.proxy_index = 0
-        self.proxy_rotating = False  # if the proxy_rotating parameter is true then in case of proxy error exceptions
+        self.proxy_rotating = proxy_rotating  # if the proxy_rotating parameter is true then in case of proxy error exceptions
         #  the request will be retried
         self.requests_args = requests_args or {}
         self.cookies = self.GetGoogleCookie()
